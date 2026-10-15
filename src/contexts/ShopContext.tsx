@@ -14,9 +14,9 @@ interface Shop {
 
 interface ShopContextType {
   shop: Shop | null;
-  isLoading: boolean;     // ✅ ชื่อที่ถูกต้อง
+  isLoading: boolean;
   isSystemAdmin: boolean;
-  error: boolean;         // ✅ เพิ่มตัวนี้กลับมา
+  error: boolean;
 }
 
 const ShopContext = createContext<ShopContextType | null>(null);
@@ -43,25 +43,17 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
       let subdomain = '';
 
       // 2. ลำดับการตรวจสอบ Subdomain:
-      // A. ถ้ามีระบุผ่าน ?shop= หรือมีค่าที่จำไว้ใน Session ให้ใช้อันนี้ก่อน
       if (shopParam || savedShop) {
         subdomain = shopParam || savedShop || '';
-      } 
-      // B. ตรวจสอบ localhost / 127.0.0.1
-      else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+      } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
         subdomain = parts[0] === 'localhost' || parts[0] === '127' ? '' : parts[0];
-      } 
-      // C. โดเมนฟรี Vercel (service-zeta-nine.vercel.app)
-      else if (hostname.endsWith('.vercel.app')) {
+      } else if (hostname.endsWith('.vercel.app')) {
         subdomain = parts.length > 3 ? parts[0] : '';
-      } 
-      // D. Custom Domain จริง (เช่น shop1.yourdomain.com)
-      else if (parts.length > 2) {
+      } else if (parts.length > 2) {
         subdomain = parts[0];
       }
 
-      // 3. กรณีเป็น System Admin (ไม่มี Subdomain หรือเข้าผ่านหน้าหลัก SuperAdmin)
-      // เคลียร์ session ทิ้งหากเข้าหน้าหลักแบบไม่มี ?shop เพื่อกลับสู่โหมด SuperAdmin
+      // 3. กรณีเป็น System Admin (ไม่มี Subdomain หรือเป็น 'www')
       if (!subdomain || subdomain === 'www') {
         sessionStorage.removeItem('current_shop_identifier');
         setShop(null);
@@ -77,7 +69,6 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
         if (res.data.name) document.title = res.data.name;
         setError(false);
       } catch (err: any) {
-        // 5. ถ้าหาไม่เจอ (404) -> ถือว่าเป็น Error (ร้านปิด/ไม่มีจริง)
         if (err.response?.status === 404) {
           console.warn("Shop not found");
           sessionStorage.removeItem('current_shop_identifier');
@@ -101,4 +92,10 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </ShopContext.Provider>
   );
+};
+
+export const useShop = () => {
+  const context = useContext(ShopContext);
+  if (!context) throw new Error("useShop must be used within ShopProvider");
+  return context;
 };
