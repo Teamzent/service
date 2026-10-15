@@ -13,39 +13,50 @@ export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    // ล้างค่าต่างๆ ตอน Logout ด้วย
+    // ล้างค่าต่างๆ ตอน Logout
     localStorage.removeItem('is_impersonating');
     localStorage.removeItem('super_backup_token');
+    sessionStorage.removeItem('current_shop_identifier'); // ✅ ล้างค่าร้านที่ค้างไว้
     logout();
     navigate('/login');
   };
 
-  // ✅ เช็คสถานะ: เรากำลังสวมรอยอยู่ไหม? (เช็คทั้ง Token สำรอง และ Flag)
+  // ✅ เช็คสถานะ: เรากำลังสวมรอยอยู่ไหม?
   const superBackupToken = localStorage.getItem('super_backup_token');
-  const isImpersonating = superBackupToken || localStorage.getItem('is_impersonating') === 'true';
+  const isImpersonating = Boolean(superBackupToken) || localStorage.getItem('is_impersonating') === 'true';
 
-  // ✅ ฟังก์ชันออกจากร่างทรง (รองรับทั้ง Localhost และ Production)
+  // ✅ ฟังก์ชันออกจากร่างทรง (รองรับ Vercel ฟรี, Localhost และ Custom Domain)
   const handleExitImpersonation = () => {
-      // CASE 1: Localhost (กู้ชีพ Token เดิม)
+    confirmAction('ยืนยันกลับสู่ระบบจัดการหลัก (Super Admin)?', () => {
+      // 1. ล้างค่าร้านค้าที่สวมรอยอยู่ออก เพื่อให้กลับเป็นโหมด Super Admin
+      sessionStorage.removeItem('current_shop_identifier');
+      localStorage.removeItem('is_impersonating');
+
+      // 2. ถ้ามี Token สำรองของ SuperAdmin ให้กู้คืนกลับมาใช้งานต่อทันที
       if (superBackupToken) {
-          localStorage.setItem('token', superBackupToken);
-          localStorage.removeItem('super_backup_token');
-          localStorage.removeItem('is_impersonating');
-          window.location.href = '/super/shops'; // กลับหน้าจัดการร้าน
-          return;
+        localStorage.setItem('token', superBackupToken);
+        localStorage.removeItem('super_backup_token');
+      } else {
+        localStorage.removeItem('token');
       }
 
-      // CASE 2: Production (ดีดกลับโดเมนหลัก)
-      const rootDomain = import.meta.env.VITE_ROOT_DOMAIN || 'tlotthai.com';
-      const protocol = window.location.protocol;
+      const currentHost = window.location.hostname;
 
-      confirmAction('ยืนยันกลับสู่ระบบจัดการหลัก (Super Admin)?', () => {
-          localStorage.removeItem('token'); 
-          localStorage.removeItem('is_impersonating');
-          
-          // Redirect กลับบ้าน
-          window.location.href = `${protocol}//${rootDomain}/super/dashboard`;
-      }, 'กลับสู่ระบบหลัก', 'ยกเลิก');
+      // 3. ถ้าอยู่บน Vercel หรือ Localhost ให้กลับไปหน้า /super/shops บนโดเมนเดิมได้เลย
+      if (
+        currentHost.endsWith('.vercel.app') || 
+        currentHost.includes('localhost') || 
+        currentHost === '127.0.0.1'
+      ) {
+        window.location.href = `${window.location.origin}/super/shops`;
+        return;
+      }
+
+      // 4. กรณีใช้ Custom Domain แยก Subdomain จริงๆ ค่อยตัด Subdomain ออกเพื่อกลับโดเมนหลัก
+      const protocol = window.location.protocol;
+      const rootDomain = currentHost.split('.').slice(-2).join('.');
+      window.location.href = `${protocol}//${rootDomain}/super/shops`;
+    }, 'กลับสู่ระบบหลัก', 'ยกเลิก');
   };
 
 
