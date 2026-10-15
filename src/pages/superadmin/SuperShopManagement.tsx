@@ -139,31 +139,32 @@ export default function SuperShopManagement() {
                 const res = await client.post(`/users/impersonate/${shopId}`);
                 const { access_token, shop_subdomain } = res.data;
                 const currentHost = window.location.hostname;
-                const origin = window.location.origin; // เช่น https://service-zeta-nine.vercel.app
+                const origin = window.location.origin;
 
-                // ✅ CASE 1: ใช้งานบน Vercel ฟรี หรือ Localhost (ใช้ ?shop=... แทน Subdomain)
+                // ✅ สำรอง Token ของ SuperAdmin เอาไว้ก่อนสวมรอย
+                const currentSuperToken = localStorage.getItem('token');
+                if (currentSuperToken) {
+                    localStorage.setItem('super_backup_token', currentSuperToken);
+                }
+
+                // ✅ CASE 1: ใช้งานบน Vercel ฟรี หรือ Localhost
                 if (
                     currentHost.endsWith('.vercel.app') || 
                     currentHost.includes('localhost') || 
                     currentHost === '127.0.0.1'
                 ) {
-                    // บันทึกรหัสร้านลง sessionStorage เพื่อให้ ShopContext รู้ว่ากำลังอยู่ในร้านไหน
                     if (shop_subdomain) {
                         sessionStorage.setItem('current_shop_identifier', shop_subdomain);
                     }
-                    // ส่งทั้ง ?shop= และ &token= ไปที่หน้า Login บนโดเมนเดิม
                     const targetUrl = `${origin}/login?shop=${shop_subdomain}&token=${access_token}`;
-                    console.log('Redirecting to:', targetUrl);
                     window.location.href = targetUrl;
                     return;
                 }
 
-                // ✅ CASE 2: กรณีอนาคตใช้ Custom Domain จริง (เช่น yourdomain.com -> test.yourdomain.com)
+                // ✅ CASE 2: Custom Domain จริง
                 const protocol = window.location.protocol;
                 const rootDomain = currentHost.split('.').slice(-2).join('.');
                 const targetUrl = `${protocol}//${shop_subdomain}.${rootDomain}/login?token=${access_token}`;
-
-                console.log('Redirecting to:', targetUrl);
                 window.location.href = targetUrl;
 
             } catch (err: any) {
