@@ -207,7 +207,11 @@ export default function MemberLayout() {
         {/* Footer */}
         <div className="p-4 mx-4 mb-4">
           <button 
-            onClick={() => { logout(); navigate('/login'); }}
+            onClick={() => { 
+              const shopSub = shop?.subdomain || sessionStorage.getItem('current_shop_identifier');
+              logout(); 
+              navigate(shopSub ? `/login?shop=${shopSub}` : '/login'); 
+            }}
             className="flex items-center justify-center gap-2 text-red-300/80 hover:text-red-200 hover:bg-red-500/10 rounded-xl w-full py-2.5 transition-all font-bold text-sm"
           >
             <LogOut size={16} /> ออกจากระบบ
