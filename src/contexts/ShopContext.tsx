@@ -32,15 +32,23 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
       const parts = hostname.split('.');
       let subdomain = '';
 
-      if (hostname.includes('localhost')) {
-          subdomain = parts[0] === 'localhost' ? '' : parts[0];
-      } else if (parts.length > 2) {
+      // ตรวจสอบ localhost
+      if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+          subdomain = parts[0] === 'localhost' || parts[0] === '127' ? '' : parts[0];
+      } 
+      // ดัก Vercel: service-zeta-nine.vercel.app มี 3 ส่วน ให้ถือเป็นหน้ากลาง (SuperAdmin) ไม่มี subdomain
+      else if (hostname.endsWith('.vercel.app')) {
+          subdomain = parts.length > 3 ? parts[0] : '';
+      } 
+      // โดเมนทั่วไป เช่น shop1.example.com
+      else if (parts.length > 2) {
           subdomain = parts[0];
       }
 
-      // 1. กรณีเป็น System Admin (ไม่มี Subdomain)
+      // 1. กรณีเป็น System Admin (ไม่มี Subdomain หรือเป็น 'www')
       if (!subdomain || subdomain === 'www') {
           setShop(null);
+          setError(false);
           setIsLoading(false);
           return;
       }
