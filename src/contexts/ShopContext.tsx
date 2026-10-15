@@ -28,11 +28,10 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const initShop = async () => {
-      // 1. ตรวจสอบ Query Parameter ?shop= จาก URL ก่อน
       const urlParams = new URLSearchParams(window.location.search);
       const shopParam = urlParams.get('shop');
 
-      // จดจำค่า shop ไว้ใน sessionStorage เผื่อผู้ใช้เปลี่ยนหน้าแล้ว query param หาย
+      // 1. ถ้าเข้าผ่านลิงก์ที่มี ?shop= ให้จำค่าร้านไว้ใน session ทันที
       if (shopParam) {
         sessionStorage.setItem('current_shop_identifier', shopParam);
       }
@@ -42,8 +41,10 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
       const parts = hostname.split('.');
       let subdomain = '';
 
-      // 2. ลำดับการตรวจสอบ Subdomain:
-      if (shopParam || savedShop) {
+      // 2. เช็คว่าเข้าหน้า SuperAdmin โดยตรงหรือไม่
+      if (window.location.pathname.startsWith('/super')) {
+        subdomain = '';
+      } else if (shopParam || savedShop) {
         subdomain = shopParam || savedShop || '';
       } else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
         subdomain = parts[0] === 'localhost' || parts[0] === '127' ? '' : parts[0];
@@ -53,7 +54,7 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
         subdomain = parts[0];
       }
 
-      // 3. กรณีเป็น System Admin (ไม่มี Subdomain หรือเป็น 'www')
+      // 3. กรณีเป็น System Admin (ไม่มีชื่อร้าน)
       if (!subdomain || subdomain === 'www') {
         sessionStorage.removeItem('current_shop_identifier');
         setShop(null);
@@ -62,15 +63,21 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // 4. กรณีเป็นร้านค้า -> ยิง API ดึงข้อมูล
+      // 4. ดึงข้อมูลร้านค้า
       try {
         const res = await client.get(`/shops/config/${subdomain}`);
         setShop(res.data);
         if (res.data.name) document.title = res.data.name;
         setError(false);
+
+        // ✅ แสดง ?shop=ชื่อร้าน เฉพาะตอนอยู่หน้าแรก (/) หรือหน้า (/login) เท่านั้น
+        const path = window.location.pathname;
+        if ((path === '/' || path === '/login') && !urlParams.get('shop')) {
+          urlParams.set('shop', res.data.subdomain || subdomain);
+          window.history.replaceState({}, '', `${path}?${urlParams.toString()}`);
+        }
       } catch (err: any) {
         if (err.response?.status === 404) {
-          console.warn("Shop not found");
           sessionStorage.removeItem('current_shop_identifier');
           setShop(null);
           setError(true);
