@@ -38,7 +38,8 @@ import LottoResultLinks from './pages/member/LottoResultLinks';
 // --- Logic การ Redirect ตาม Role ---
 const RedirectBasedOnRole = () => {
   const { user, isLoading } = useAuth();
-  // 1. ถ้ากำลังโหลด User อยู่ ให้หมุนติ้วๆ รอก่อน (อย่าเพิ่งดีด)
+  const { shop } = useShop(); // ✅ ดึงข้อมูลร้านมาด้วย
+
   if (isLoading) {
       return (
           <div className="h-screen flex items-center justify-center bg-slate-50">
@@ -47,14 +48,18 @@ const RedirectBasedOnRole = () => {
       );
   }
 
-  // 2. ถ้าโหลดเสร็จแล้ว แต่ไม่มี User ค่อยดีดไป Login
-  if (!user) return <Navigate to="/login" />;
+  // ✅ ถ้ายังไม่ได้ล็อกอิน ให้ดีดไปหน้า /login พร้อมแนบชื่อร้าน (ถ้ามี)
+  if (!user) {
+      const savedShop = shop?.subdomain || sessionStorage.getItem('current_shop_identifier');
+      const query = savedShop ? `?shop=${savedShop}` : window.location.search;
+      return <Navigate to={`/login${query}`} replace />;
+  }
 
-  // 3. ถ้ามี User ก็ไปตาม Role
+  // พอเข้าสู่ระบบสำเร็จแล้ว ไปหน้าข้างในแบบ URL สะอาดๆ ได้เลย
   switch (user.role) {
-    case 'superadmin': return <Navigate to="/super/dashboard" />;
-    case 'admin': return <Navigate to="/admin/dashboard" />;
-    case 'member': return <Navigate to="/play" />;
+    case 'superadmin': return <Navigate to="/super/dashboard" replace />;
+    case 'admin': return <Navigate to="/admin/dashboard" replace />;
+    case 'member': return <Navigate to="/play" replace />;
     default: return <div className="text-center p-10 text-red-500">Unknown Role</div>;
   }
 };
