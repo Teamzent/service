@@ -139,24 +139,31 @@ export default function SuperShopManagement() {
                 const res = await client.post(`/users/impersonate/${shopId}`);
                 const { access_token, shop_subdomain } = res.data;
                 const currentHost = window.location.hostname;
+                const origin = window.location.origin; // เช่น https://service-zeta-nine.vercel.app
 
-                // --- CASE: LOCALHOST ---
-                if (currentHost.includes('localhost') || currentHost === '127.0.0.1') {
-                    localStorage.setItem('token', access_token);
-                    // บังคับโหลดใหม่เพื่อให้ Context เปลี่ยน
-                    window.location.href = '/admin/dashboard';
+                // ✅ CASE 1: ใช้งานบน Vercel ฟรี หรือ Localhost (ใช้ ?shop=... แทน Subdomain)
+                if (
+                    currentHost.endsWith('.vercel.app') || 
+                    currentHost.includes('localhost') || 
+                    currentHost === '127.0.0.1'
+                ) {
+                    // บันทึกรหัสร้านลง sessionStorage เพื่อให้ ShopContext รู้ว่ากำลังอยู่ในร้านไหน
+                    if (shop_subdomain) {
+                        sessionStorage.setItem('current_shop_identifier', shop_subdomain);
+                    }
+                    // ส่งทั้ง ?shop= และ &token= ไปที่หน้า Login บนโดเมนเดิม
+                    const targetUrl = `${origin}/login?shop=${shop_subdomain}&token=${access_token}`;
+                    console.log('Redirecting to:', targetUrl);
+                    window.location.href = targetUrl;
                     return;
                 }
 
-                // --- CASE: PRODUCTION ---
-                const protocol = window.location.protocol; // https:
-                const rootDomain = import.meta.env.VITE_ROOT_DOMAIN || currentHost.split('.').slice(-2).join('.');
-                
-                // สร้าง URL (เช็คให้แน่ใจว่าไม่มี slash เกิน)
+                // ✅ CASE 2: กรณีอนาคตใช้ Custom Domain จริง (เช่น yourdomain.com -> test.yourdomain.com)
+                const protocol = window.location.protocol;
+                const rootDomain = currentHost.split('.').slice(-2).join('.');
                 const targetUrl = `${protocol}//${shop_subdomain}.${rootDomain}/login?token=${access_token}`;
 
-                console.log('Redirecting to:', targetUrl); // ✅ ดู Log ก่อนไป
-
+                console.log('Redirecting to:', targetUrl);
                 window.location.href = targetUrl;
 
             } catch (err: any) {
@@ -164,7 +171,7 @@ export default function SuperShopManagement() {
             }
         }, 'ยืนยัน');
     };
-
+    
   const openCreateModal = () => {
       setNewShop({ name: '', code: '', subdomain: '', logo_url: '' });
       setIsEditMode(false);
