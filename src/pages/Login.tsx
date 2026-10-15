@@ -72,11 +72,17 @@ export default function Login() {
         }
     }, [shop]);
     // ----------------------------------------------------
-    // 1. รับ Token จาก URL (Impersonate / Auto Login) 
+    // 1. รับ Token และ Shop จาก URL (Impersonate / Auto Login) 
     // ----------------------------------------------------
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const tokenFromUrl = params.get('token');
+        const shopFromUrl = params.get('shop');
+
+        // ถ้ามีค่า shop แนบมากับลิงก์ ให้เซฟลง sessionStorage ทันที
+        if (shopFromUrl) {
+            sessionStorage.setItem('current_shop_identifier', shopFromUrl);
+        }
 
         if (tokenFromUrl) {
             const autoLogin = async () => {
@@ -86,8 +92,9 @@ export default function Login() {
                     await login(tokenFromUrl); 
                     
                     toast.success('ยืนยันตัวตนสำเร็จ');
+                    // ล้าง token ออกจาก URL แต่คงหน้าเว็บไว้ แล้วดีดเข้าหน้าหลักของร้าน
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    setTimeout(() => navigate('/', { replace: true }), 100);
+                    setTimeout(() => navigate('/admin/dashboard', { replace: true }), 100);
                 } catch (err: any) {
                     toast.error(err.response?.data?.detail || 'Token ไม่ถูกต้อง หรือ หมดอายุ');
                     localStorage.removeItem('token');
