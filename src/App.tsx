@@ -61,11 +61,15 @@ const RedirectBasedOnRole = () => {
 
 // --- Main App Component ---
 function App() {
-  // 1. เรียกใช้ Hook ตรวจสอบร้านค้า (Subdomain)
   const { shop, isLoading, error } = useShop();
 
-  // 2. แสดงหน้า Loading ระหว่างเช็ค Subdomain
-  if (isLoading) {
+  // ตรวจว่ากำลังเข้าหน้า superadmin หรือ login หรือไม่
+  const isPlatformRoute = 
+    window.location.pathname.startsWith('/super') || 
+    window.location.pathname === '/login';
+
+  // 1. ถ้ากำลังโหลด และไม่ใช่หน้า SuperAdmin ค่อยโชว์สปินเนอร์
+  if (isLoading && !isPlatformRoute) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="relative">
@@ -79,9 +83,8 @@ function App() {
     );
   }
 
-  // 3. แสดงหน้า 404 (Not Found) ถ้าร้านปิด หรือไม่มีอยู่จริง
-  // นี่คือจุดสำคัญที่ทำให้เหมือน "เว็บหายไป" เมื่อปิดร้าน
-  if (error) {
+  // 2. แสดงหน้า 404 เฉพาะเมื่อไม่ใช่หน้า SuperAdmin/Login
+  if (error && !isPlatformRoute) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50 text-slate-500 p-4 text-center font-sans">
         <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 max-w-md w-full">
@@ -94,8 +97,8 @@ function App() {
                 ลิงก์ที่คุณเข้าถึงอาจไม่ถูกต้อง
             </p>
             <div className="mt-8 border-t border-gray-100 pt-6">
-                <a href="/" className="text-blue-600 font-bold hover:underline text-sm transition-all hover:text-blue-700">
-                    กลับสู่หน้าหลัก
+                <a href="/login" className="text-blue-600 font-bold hover:underline text-sm transition-all hover:text-blue-700">
+                    เข้าสู่ระบบจัดการ (SuperAdmin)
                 </a>
             </div>
         </div>
@@ -103,9 +106,6 @@ function App() {
     );
   }
 
-  // 4. ถ้าผ่านหมด (ร้านเปิดปกติ) ให้โหลดระบบ Router
-  // (ถ้ามี shop object กลับมา แสดงว่าเป็นร้านค้า จะเอา shop.name ไปแปะหัวเว็บก็ได้)
-  
   return (
     <AuthProvider>
       <BrowserRouter>
