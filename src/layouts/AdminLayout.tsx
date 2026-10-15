@@ -13,13 +13,12 @@ export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = () => {
-    // ล้างค่าต่างๆ ตอน Logout
-    localStorage.removeItem('is_impersonating');
-    localStorage.removeItem('super_backup_token');
-    sessionStorage.removeItem('current_shop_identifier'); // ✅ ล้างค่าร้านที่ค้างไว้
-    logout();
-    navigate('/login');
-  };
+  const shopSub = sessionStorage.getItem('current_shop_identifier');
+  localStorage.removeItem('is_impersonating');
+  localStorage.removeItem('super_backup_token');
+  logout();
+  navigate(shopSub ? `/login?shop=${shopSub}` : '/login');
+};
 
   // ✅ เช็คสถานะ: เรากำลังสวมรอยอยู่ไหม?
   const superBackupToken = localStorage.getItem('super_backup_token');
