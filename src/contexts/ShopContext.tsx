@@ -24,51 +24,67 @@ const ShopContext = createContext<ShopContextType | null>(null);
 export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
   const [shop, setShop] = useState<Shop | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false); // ✅ State สำหรับเก็บ Error
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const initShop = async () => {
+      // 1. ตรวจสอบ Query Parameter ?shop= จาก URL ก่อน
+      const urlParams = new URLSearchParams(window.location.search);
+      const shopParam = urlParams.get('shop');
+
+      // จดจำค่า shop ไว้ใน sessionStorage เผื่อผู้ใช้เปลี่ยนหน้าแล้ว query param หาย
+      if (shopParam) {
+        sessionStorage.setItem('current_shop_identifier', shopParam);
+      }
+      const savedShop = sessionStorage.getItem('current_shop_identifier');
+
       const hostname = window.location.hostname;
       const parts = hostname.split('.');
       let subdomain = '';
 
-      // ตรวจสอบ localhost
-      if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-          subdomain = parts[0] === 'localhost' || parts[0] === '127' ? '' : parts[0];
+      // 2. ลำดับการตรวจสอบ Subdomain:
+      // A. ถ้ามีระบุผ่าน ?shop= หรือมีค่าที่จำไว้ใน Session ให้ใช้อันนี้ก่อน
+      if (shopParam || savedShop) {
+        subdomain = shopParam || savedShop || '';
       } 
-      // ดัก Vercel: service-zeta-nine.vercel.app มี 3 ส่วน ให้ถือเป็นหน้ากลาง (SuperAdmin) ไม่มี subdomain
+      // B. ตรวจสอบ localhost / 127.0.0.1
+      else if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
+        subdomain = parts[0] === 'localhost' || parts[0] === '127' ? '' : parts[0];
+      } 
+      // C. โดเมนฟรี Vercel (service-zeta-nine.vercel.app)
       else if (hostname.endsWith('.vercel.app')) {
-          subdomain = parts.length > 3 ? parts[0] : '';
+        subdomain = parts.length > 3 ? parts[0] : '';
       } 
-      // โดเมนทั่วไป เช่น shop1.example.com
+      // D. Custom Domain จริง (เช่น shop1.yourdomain.com)
       else if (parts.length > 2) {
-          subdomain = parts[0];
+        subdomain = parts[0];
       }
 
-      // 1. กรณีเป็น System Admin (ไม่มี Subdomain หรือเป็น 'www')
+      // 3. กรณีเป็น System Admin (ไม่มี Subdomain หรือเข้าผ่านหน้าหลัก SuperAdmin)
+      // เคลียร์ session ทิ้งหากเข้าหน้าหลักแบบไม่มี ?shop เพื่อกลับสู่โหมด SuperAdmin
       if (!subdomain || subdomain === 'www') {
-          setShop(null);
-          setError(false);
-          setIsLoading(false);
-          return;
+        sessionStorage.removeItem('current_shop_identifier');
+        setShop(null);
+        setError(false);
+        setIsLoading(false);
+        return;
       }
 
-      // 2. กรณีเป็นร้านค้า -> ยิง API เช็ค
+      // 4. กรณีเป็นร้านค้า -> ยิง API ดึงข้อมูล
       try {
         const res = await client.get(`/shops/config/${subdomain}`);
         setShop(res.data);
-        if(res.data.name) document.title = res.data.name;
-        setError(false); // สำคัญ: รีเซ็ต Error
-        
+        if (res.data.name) document.title = res.data.name;
+        setError(false);
       } catch (err: any) {
-        // 3. ถ้าหาไม่เจอ (404) -> ถือว่าเป็น Error (ร้านปิด/ไม่มีจริง)
+        // 5. ถ้าหาไม่เจอ (404) -> ถือว่าเป็น Error (ร้านปิด/ไม่มีจริง)
         if (err.response?.status === 404) {
-             console.warn("Shop not found");
-             setShop(null); 
-             setError(true); // ✅ แจ้ง App ว่าเกิด Error แล้ว
+          console.warn("Shop not found");
+          sessionStorage.removeItem('current_shop_identifier');
+          setShop(null);
+          setError(true);
         } else {
-             console.error("Failed to load shop config:", err);
-             // กรณีเน็ตหลุด หรือ Server พัง อาจจะเลือก Error หรือไม่ก็ได้
+          console.error("Failed to load shop config:", err);
         }
       } finally {
         setIsLoading(false);
@@ -78,7 +94,6 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
     initShop();
   }, []);
 
-  // Logic: เป็น System Admin ก็ต่อเมื่อ ไม่มี Shop และ ไม่ Error
   const isSystemAdmin = !shop && !error;
 
   return (
@@ -86,10 +101,4 @@ export const ShopProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </ShopContext.Provider>
   );
-};
-
-export const useShop = () => {
-  const context = useContext(ShopContext);
-  if (!context) throw new Error("useShop must be used within ShopProvider");
-  return context;
 };
